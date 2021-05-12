@@ -1,18 +1,19 @@
-/*
- * Project ParticleMoistureToMQTT
- * Description:
- * Author:
- * Date:
- */
+SYSTEM_THREAD(ENABLED);
+SerialLogHandler logHandler;
 
-// setup() runs once, when the device is first turned on.
+const pin_t MOISTURE = A0; 
+
+int soilMoisture; 
+
+
 void setup() {
-  // Put initialization like pinMode and begin functions here.
-
+	Particle.variable("Soil Moisture", soilMoisture);
 }
 
-// loop() runs over and over again, as quickly as it can execute.
 void loop() {
-  // The core of your code will likely live here.
-
+	soilMoisture = analogRead(MOISTURE);
+	Log.info("soilMoisture=%d", soilMoisture);
+	Particle.publish("Soil Moisture", String(soilMoisture));
+	//Collect values every minute
+	delay(60000ms);
 }
