@@ -2,15 +2,33 @@
 #include <MQTT.h>
 #include <particle_secrets.h>
 
-//pin setups
+
+//MQTT Sensors for Home Assistant
+//Moisture
+const String moistureConfigTopic = "homeassistant/sensor/soil_moisture/config";
+const String moistureStateTopic = "homeassistant/sensor/soil_moisture/state";
+const String moistureSensorName = "Soil Moisture";
+const String moistureDeviceClass = "humidity";
+const String moistureUnitOfMeasure = "%";
+
+//Temperature
+const String temperatureConfigTopic = "homeassistant/sensor/soil_temperature/config";
+const String temperatureStateTopic = "homeassistant/sensor/soil_temperature/state";
+const String temperatureSensorName = "Soil Temperature";
+const String temperatureDeviceClass = "temperature";
+const String temperatureUnitOfMeasure = "°C";
+
+//Light
+const String lightConfigTopic = "homeassistant/sensor/soil_light/config";
+const String lightStateTopic = "homeassistant/sensor/soil_light/state";
+const String lightSensorName = "Soil Light";
+const String lightDeviceClass = "illuminance";
+const String lightUnitOfMeasure = "lx";
+
+//pin setup
 const pin_t MOISTURE = A0;
 const pin_t LIGHT_PIN = A1;
-TMP102 sensor0(0x48); // Initialize sensor at I2C address 0x48
-// Sensor address can be changed with an external jumper to:
-// ADD0 - Address
-//  VCC - 0x49
-//  SDA - 0x4A
-//  SCL - 0x4B
+TMP102 sensor0(0x48); 
 
 void callback(char* topic, byte* payload, unsigned int length);
 
@@ -22,7 +40,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     delay(1000);
 }
 
-//Globally Available Stuff
+//Globally Available
 byte server[] = { 10,0,0,10 };
 MQTT client(server, 1883, 255, 120, callback);
 const String MQTTusername = SECRETS_MQTTUsername;
@@ -35,14 +53,14 @@ bool MQTTConnected;
 double temperature;
 
 void setup() {
+    //Varriables Accessible from Particle Console
 	Particle.variable("Soil Moisture Raw", soilMoistureRaw);
 	Particle.variable("Soil Moisture Percentage", soilMoisturePercentage);
 	Particle.variable("Connected to MQTT", MQTTConnected);
 	Particle.variable("Light Sensor", lightSensor);
+	Particle.variable("Temperature", temperature);
 
     connectMQTT();
-
-    // publish/subscribe
     if (client.isConnected()) {
         client.publish("outTopic/message","hello world");
         Particle.publish("MQTT Client", " Connected!");
@@ -53,13 +71,9 @@ void setup() {
     
     //Temperature Setup
     sensor0.begin(); //Join I2C Bus
-    Particle.publish("TMP102", " Connected!");
-    
-	Particle.variable("Temperature", temperature);
-	
-	//setup Customer MQTT Sensor Automatic Discovery from Home Assistant
-	
-    
+    Particle.publish("TMP102", " Connected!"); 
+
+    configureMQTTSensors();   
 }
 
 void loop() {
@@ -77,9 +91,9 @@ void loop() {
         temperature = sensor0.readTempC();
         sensor0.sleep();
         Particle.publish("Room Temperature", String(temperature));
-        
-        configureNewSensor();
-        
+
+        sendMQTTStateMessages();
+            
 	    //Collect values every minute
 	    delay(60000ms);
 	    client.loop();
@@ -92,76 +106,45 @@ void loop() {
 }
 
 void connectMQTT(){
+    //Add Datetime stamp just for logging in case there's some debugging needed later for reconnects
     client.connect("martyParticle_" + String(Time.now()),MQTTusername,MQTTpassword);
-    //id, user, pass, 0, QOS0, 0, 0, true
 }
 
-void sendMQTTSensorValue(){
-    String topic = "home";
-}
-
-void configureNewSensor(){
+void configureMQTTSensors(){
     //Any changes to this configuration will be updated automatically in homeassistnat
     //If an empty payload is sent for this configuration topic then the sensor will be deleted
-    String configTopic = "homeassistant/sensor/soil_moisture/config";
-    String stateTopic = "homeassistant/sensor/soil_moisture/state";
+
+    //Moisture
+    client.publish(moistureConfigTopic, createMQTTConfigJSONPayload(moistureSensorName, moistureStateTopic, moistureDeviceClass, moistureUnitOfMeasure));
+    //Temperature
+    client.publish(temperatureConfigTopic, createMQTTConfigJSONPayload(temperatureSensorName, temperatureStateTopic, temperatureDeviceClass, temperatureUnitOfMeasure));
+    //Light
+    client.publish(lightConfigTopic, createMQTTConfigJSONPayload(lightSensorName, lightStateTopic, lightDeviceClass, lightUnitOfMeasure));   
+}
+
+String createMQTTConfigJSONPayload(String sensorName, String stateTopic, String deviceClass, String UOM){
+    char buf[256];
+    JSONBufferWriter writer(buf, sizeof(buf) -1);
+    writer.beginObject();
+        writer.name("device_class").value(deviceClass);
+        writer.name("name").value(sensorName);
+        writer.name("state_topic").value(stateTopic);
+        writer.name("unit_of_measurement").value(UOM);
+    writer.endObject();
+    writer.buffer()[std::min(writer.bufferSize(), writer.dataSize())] = 0;
+    
+    return String(buf);
+    
+}
+
+void sendMQTTStateMessages(){
+    //make sure retain flag is set to retain MQTT server sends homeassistant the latest received message on startup
     bool retain = true;
-    client.publish(configTopic, createMQTTConfigJSONPayload("Soil Moisture", stateTopic));
-    client.publish(stateTopic, String(soilMoisturePercentage, 2), retain);
-    
-    
-    String configTopicTemp = "homeassistant/sensor/soil_temperature/config";
-    String stateTopicTemp = "homeassistant/sensor/soil_temperature/state";
-    client.publish(configTopicTemp, createMQTTTempConfigJSONPayload("Soil Temperature", stateTopicTemp));
-    client.publish(stateTopicTemp, String(temperature, 2), retain);
-    
-    String configTopicLight = "homeassistant/sensor/soil_light/config";
-    String stateTopicLight = "homeassistant/sensor/soil_light/state";
-    client.publish(configTopicLight, createMQTTLightConfigJSONPayload("Soil Light", stateTopicLight));
-    client.publish(stateTopicLight, String(lightSensor), retain);
-}
 
-String createMQTTConfigJSONPayload(String sensorName, String stateTopic){
-    char buf[256];
-    JSONBufferWriter writer(buf, sizeof(buf) -1);
-    writer.beginObject();
-        writer.name("device_class").value("humidity");
-        writer.name("name").value(sensorName);
-        writer.name("state_topic").value(stateTopic);
-        writer.name("unit_of_measurement").value("%");
-    writer.endObject();
-    writer.buffer()[std::min(writer.bufferSize(), writer.dataSize())] = 0;
-    
-    return String(buf);
-    
-}
-
-String createMQTTTempConfigJSONPayload(String sensorName, String stateTopic){
-    char buf[256];
-    JSONBufferWriter writer(buf, sizeof(buf) -1);
-    writer.beginObject();
-        writer.name("device_class").value("temperature");
-        writer.name("name").value(sensorName);
-        writer.name("state_topic").value(stateTopic);
-        writer.name("unit_of_measurement").value("°C");
-    writer.endObject();
-    writer.buffer()[std::min(writer.bufferSize(), writer.dataSize())] = 0;
-    
-    return String(buf);
-    
-}
-
-String createMQTTLightConfigJSONPayload(String sensorName, String stateTopic){
-    char buf[256];
-    JSONBufferWriter writer(buf, sizeof(buf) -1);
-    writer.beginObject();
-        writer.name("device_class").value("illuminance");
-        writer.name("name").value(sensorName);
-        writer.name("state_topic").value(stateTopic);
-        writer.name("unit_of_measurement").value("lx");
-    writer.endObject();
-    writer.buffer()[std::min(writer.bufferSize(), writer.dataSize())] = 0;
-    
-    return String(buf);
-    
+    //Moisture
+    client.publish(moistureStateTopic, String(soilMoisturePercentage, 2), retain);
+    //Temperature
+    client.publish(temperatureStateTopic, String(temperature, 2), retain);
+    //Light
+    client.publish(lightStateTopic, String(lightSensor), retain);
 }
