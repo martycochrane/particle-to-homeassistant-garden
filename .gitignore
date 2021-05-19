@@ -1,5 +1,5 @@
 ParticleMoistureToMQTT/src/ParticleMoistureToMQTT.cpp
 ParticleMoistureToMQTT/target/*
 ParticleMoistureToMQTT/lib/*
-ParticleMoistureToMQTT/.vscode/settings.json
+ParticleMoistureToMQTT/.vscode/*
 ParticleMoistureToMQTT/src/particle_secrets.h
