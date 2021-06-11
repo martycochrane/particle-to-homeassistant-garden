@@ -82,15 +82,12 @@ void loop() {
 	    MQTTConnected = true;
         soilMoistureRaw = analogRead(MOISTURE);
         soilMoisturePercentage = (double(100) - (double(soilMoistureRaw) / double(4000)*double(100)));
-	    Particle.publish("Soil Moisture Raw", String(soilMoistureRaw));
-        Particle.publish("Soil Moisture Percentage", String(soilMoisturePercentage));
-        
-        
+             
         //Temperature Collection
         sensor0.wakeup();
         temperature = sensor0.readTempC();
         sensor0.sleep();
-        Particle.publish("Room Temperature", String(temperature));
+        //Particle.publish("Room Temperature", String(temperature));
 
         sendMQTTStateMessages();
             
