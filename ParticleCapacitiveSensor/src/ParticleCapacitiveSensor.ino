@@ -8,7 +8,7 @@ const String moistureConfigTopic = "homeassistant/sensor/soilCap_moisture/config
 const String moistureStateTopic = "homeassistant/sensor/soilCap_moisture/state";
 const String moistureSensorName = "SoilCap Moisture";
 const String moistureDeviceClass = "humidity";
-const String moistureUnitOfMeasure = "%";
+const String moistureUnitOfMeasure = "#";
 
 //Temperature
 const String temperatureConfigTopic = "homeassistant/sensor/soilCap_temperature/config";
@@ -16,6 +16,20 @@ const String temperatureStateTopic = "homeassistant/sensor/soilCap_temperature/s
 const String temperatureSensorName = "SoilCap Temperature";
 const String temperatureDeviceClass = "temperature";
 const String temperatureUnitOfMeasure = "°C";
+
+//Battery Voltage
+const String batteryConfigTopic = "homeassistant/sensor/soil_battery/config";
+const String batteryStateTopic = "homeassistant/sensor/soil_battery/state";
+const String batterySensorName = "SoilCap Battery";
+const String batteryDeviceClass = "voltage";
+const String batteryUnitOfMeasure = "V";
+
+//Battery Percentage
+const String batteryPercentageConfigTopic = "homeassistant/sensor/soil_batteryPercentage/config";
+const String batteryPercentageStateTopic = "homeassistant/sensor/soil_batteryPercentage/state";
+const String batteryPercentageSensorName = "SoilCap Battery Percentage";
+const String batteryPercentageDeviceClass = "battery";
+const String batteryPercentageUnitOfMeasure = "%";
 
 Adafruit_seesaw ss;
 
@@ -37,6 +51,8 @@ const String MQTTpassword = SECRETS_MQTTPassword;
 int soilCapMoistureRaw;
 bool MQTTConnected;
 double temperatureCap;
+double voltage;
+int batteryPercentage;
 
 void setup()
 {
@@ -45,6 +61,8 @@ void setup()
 	Particle.variable("Soil Cap Raw", soilCapMoistureRaw);
 	Particle.variable("Connected to MQTT", MQTTConnected);
 	Particle.variable("Temperature Cap", temperatureCap);
+  Particle.variable("Battery Voltage", voltage);
+  Particle.variable("Battery Percentage", batteryPercentage);
 
   Particle.publish("Capacitive Soil Sensor Starting");
 
@@ -76,10 +94,10 @@ void loop() {
     uint16_t capread = ss.touchRead(0);
 
     MQTTConnected = true;
-    soilCapMoistureRaw = int(capread);         
-          
+    soilCapMoistureRaw = int(capread);
     temperatureCap = double(tempC);
-
+    voltage = analogRead(BATT) * 0.0011224; // The constant 0.0011224 is based on the voltage divider circuit (R1 = 806K, R2 = 2M) that lowers the 3.6V LiPo battery output to a value that can be read by the ADC.
+    batteryPercentage = voltage * 25;
     sendMQTTStateMessages();
               
     //Collect values every minute
@@ -100,11 +118,16 @@ void connectMQTT(){
 void configureMQTTSensors(){
     //Any changes to this configuration will be updated automatically in homeassistnat
     //If an empty payload is sent for this configuration topic then the sensor will be deleted
+    bool retain = true;
 
     //Moisture
-    client.publish(moistureConfigTopic, createMQTTConfigJSONPayload(moistureSensorName, moistureStateTopic, moistureDeviceClass, moistureUnitOfMeasure));
+    client.publish(moistureConfigTopic, createMQTTConfigJSONPayload(moistureSensorName, moistureStateTopic, moistureDeviceClass, moistureUnitOfMeasure), retain);
     //Temperature
-    client.publish(temperatureConfigTopic, createMQTTConfigJSONPayload(temperatureSensorName, temperatureStateTopic, temperatureDeviceClass, temperatureUnitOfMeasure));
+    client.publish(temperatureConfigTopic, createMQTTConfigJSONPayload(temperatureSensorName, temperatureStateTopic, temperatureDeviceClass, temperatureUnitOfMeasure), retain);
+    //Battery
+    client.publish(batteryConfigTopic, createMQTTConfigJSONPayload(batterySensorName, batteryStateTopic, batteryDeviceClass, batteryUnitOfMeasure), retain);
+    //Battery Percentage
+    client.publish(batteryPercentageConfigTopic, createMQTTConfigJSONPayload(batteryPercentageSensorName, batteryPercentageStateTopic, batteryPercentageDeviceClass, batteryPercentageUnitOfMeasure), retain);
 }
 
 String createMQTTConfigJSONPayload(String sensorName, String stateTopic, String deviceClass, String UOM){
@@ -130,4 +153,8 @@ void sendMQTTStateMessages(){
     client.publish(moistureStateTopic, String(soilCapMoistureRaw), retain);
     //Temperature
     client.publish(temperatureStateTopic, String(temperatureCap, 2), retain);
+    //Battery
+    client.publish(batteryStateTopic, String(voltage, 2), retain);
+    //Battery
+    client.publish(batteryPercentageStateTopic, String(batteryPercentage), retain);
 }

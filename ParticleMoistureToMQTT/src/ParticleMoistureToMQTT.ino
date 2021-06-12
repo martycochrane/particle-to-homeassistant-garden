@@ -110,13 +110,13 @@ void connectMQTT(){
 void configureMQTTSensors(){
     //Any changes to this configuration will be updated automatically in homeassistnat
     //If an empty payload is sent for this configuration topic then the sensor will be deleted
-
+    bool retain = true;
     //Moisture
-    client.publish(moistureConfigTopic, createMQTTConfigJSONPayload(moistureSensorName, moistureStateTopic, moistureDeviceClass, moistureUnitOfMeasure));
+    client.publish(moistureConfigTopic, createMQTTConfigJSONPayload(moistureSensorName, moistureStateTopic, moistureDeviceClass, moistureUnitOfMeasure), retain);
     //Temperature
-    client.publish(temperatureConfigTopic, createMQTTConfigJSONPayload(temperatureSensorName, temperatureStateTopic, temperatureDeviceClass, temperatureUnitOfMeasure));
+    client.publish(temperatureConfigTopic, createMQTTConfigJSONPayload(temperatureSensorName, temperatureStateTopic, temperatureDeviceClass, temperatureUnitOfMeasure), retain);
     //Light
-    client.publish(lightConfigTopic, createMQTTConfigJSONPayload(lightSensorName, lightStateTopic, lightDeviceClass, lightUnitOfMeasure));   
+    client.publish(lightConfigTopic, createMQTTConfigJSONPayload(lightSensorName, lightStateTopic, lightDeviceClass, lightUnitOfMeasure), retain);   
 }
 
 String createMQTTConfigJSONPayload(String sensorName, String stateTopic, String deviceClass, String UOM){
