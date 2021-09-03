@@ -4,32 +4,28 @@
 
 //MQTT Sensors for Home Assistant
 //Moisture
-const String moistureConfigTopic = "homeassistant/sensor/soilCap_moisture/config";
-const String moistureStateTopic = "homeassistant/sensor/soilCap_moisture/state";
-const String moistureSensorName = "SoilCap Moisture";
+const String moistureConfigTopic = "homeassistant/sensor/soil_moisture/config";
+const String moistureStateTopic = "homeassistant/sensor/soil_moisture/state";
+const String moistureSensorName = "Soil Moisture";
 const String moistureDeviceClass = "humidity";
 const String moistureUnitOfMeasure = "#";
 
 //Temperature
-const String temperatureConfigTopic = "homeassistant/sensor/soilCap_temperature/config";
-const String temperatureStateTopic = "homeassistant/sensor/soilCap_temperature/state";
-const String temperatureSensorName = "SoilCap Temperature";
+const String temperatureConfigTopic = "homeassistant/sensor/soil_temperature/config";
+const String temperatureStateTopic = "homeassistant/sensor/soil_temperature/state";
+const String temperatureSensorName = "Soil Temperature";
 const String temperatureDeviceClass = "temperature";
 const String temperatureUnitOfMeasure = "°C";
 
-//Battery Voltage
-const String batteryConfigTopic = "homeassistant/sensor/soil_battery/config";
-const String batteryStateTopic = "homeassistant/sensor/soil_battery/state";
-const String batterySensorName = "SoilCap Battery";
-const String batteryDeviceClass = "voltage";
-const String batteryUnitOfMeasure = "V";
+//Light
+const String lightConfigTopic = "homeassistant/sensor/soil_light/config";
+const String lightStateTopic = "homeassistant/sensor/soil_light/state";
+const String lightSensorName = "Soil Light";
+const String lightDeviceClass = "illuminance";
+const String lightUnitOfMeasure = "lx";
 
-//Battery Percentage
-const String batteryPercentageConfigTopic = "homeassistant/sensor/soil_batteryPercentage/config";
-const String batteryPercentageStateTopic = "homeassistant/sensor/soil_batteryPercentage/state";
-const String batteryPercentageSensorName = "SoilCap Battery Percentage";
-const String batteryPercentageDeviceClass = "battery";
-const String batteryPercentageUnitOfMeasure = "%";
+//pin setup
+const pin_t LIGHT_PIN = A1;
 
 Adafruit_seesaw ss;
 
@@ -48,21 +44,19 @@ MQTT client(server, 1883, 255, 120, callback);
 const String MQTTusername = SECRETS_MQTTUsername;
 const String MQTTpassword = SECRETS_MQTTPassword;
 
-int soilCapMoistureRaw;
+int soilMoistureRaw;
 bool MQTTConnected;
-double temperatureCap;
-double voltage;
-int batteryPercentage;
+double temperature;
+int lightSensor;
 
 void setup()
 {
 
   //Varriables Accessible from Particle Console
-	Particle.variable("Soil Cap Raw", soilCapMoistureRaw);
+	Particle.variable("Soil Raw", soilMoistureRaw);
 	Particle.variable("Connected to MQTT", MQTTConnected);
-	Particle.variable("Temperature Cap", temperatureCap);
-  Particle.variable("Battery Voltage", voltage);
-  Particle.variable("Battery Percentage", batteryPercentage);
+	Particle.variable("Temperature", temperature);
+  Particle.variable("Light Sensor", lightSensor);
 
   Particle.publish("Capacitive Soil Sensor Starting");
 
@@ -94,19 +88,9 @@ void loop() {
     uint16_t capread = ss.touchRead(0);
 
     MQTTConnected = true;
-    soilCapMoistureRaw = int(capread);
-    temperatureCap = double(tempC);
-    voltage = analogRead(BATT) * 0.0011224; // The constant 0.0011224 is based on the voltage divider circuit (R1 = 806K, R2 = 2M) that lowers the 3.6V LiPo battery output to a value that can be read by the ADC.
-    
-    //Calculating the Battery Percentage
-    //range = max - min (Power Dies at 3.33v and max around 4.1)
-    //correctedStartValue = input - min
-    //percentage = (correctedStartValue *100) / range
-    
-    double range = 4.10 - 3.33;
-    double correctedStartValue = voltage - 3.33;
-    double battery = (correctedStartValue * 100) / range; 
-    batteryPercentage = int(battery);
+    soilMoistureRaw = int(capread);
+    temperature = double(tempC);
+    lightSensor = analogRead(LIGHT_PIN);
     sendMQTTStateMessages();
               
     //Collect values every minute
@@ -121,7 +105,7 @@ void loop() {
 
 void connectMQTT(){
     //Add Datetime stamp just for logging in case there's some debugging needed later for reconnects
-    client.connect("martyParticleCap_" + String(Time.now()),MQTTusername,MQTTpassword);
+    client.connect("martyParticleCapV2_" + String(Time.now()),MQTTusername,MQTTpassword);
 }
 
 void configureMQTTSensors(){
@@ -133,10 +117,8 @@ void configureMQTTSensors(){
     client.publish(moistureConfigTopic, createMQTTConfigJSONPayload(moistureSensorName, moistureStateTopic, moistureDeviceClass, moistureUnitOfMeasure), retain);
     //Temperature
     client.publish(temperatureConfigTopic, createMQTTConfigJSONPayload(temperatureSensorName, temperatureStateTopic, temperatureDeviceClass, temperatureUnitOfMeasure), retain);
-    //Battery
-    client.publish(batteryConfigTopic, createMQTTConfigJSONPayload(batterySensorName, batteryStateTopic, batteryDeviceClass, batteryUnitOfMeasure), retain);
-    //Battery Percentage
-    client.publish(batteryPercentageConfigTopic, createMQTTConfigJSONPayload(batteryPercentageSensorName, batteryPercentageStateTopic, batteryPercentageDeviceClass, batteryPercentageUnitOfMeasure), retain);
+    //Light
+    client.publish(lightConfigTopic, createMQTTConfigJSONPayload(lightSensorName, lightStateTopic, lightDeviceClass, lightUnitOfMeasure), retain);
 }
 
 String createMQTTConfigJSONPayload(String sensorName, String stateTopic, String deviceClass, String UOM){
@@ -159,11 +141,9 @@ void sendMQTTStateMessages(){
     bool retain = true;
 
     //Moisture
-    client.publish(moistureStateTopic, String(soilCapMoistureRaw), retain);
+    client.publish(moistureStateTopic, String(soilMoistureRaw), retain);
     //Temperature
-    client.publish(temperatureStateTopic, String(temperatureCap, 2), retain);
-    //Battery
-    client.publish(batteryStateTopic, String(voltage, 2), retain);
-    //Battery
-    client.publish(batteryPercentageStateTopic, String(batteryPercentage), retain);
+    client.publish(temperatureStateTopic, String(temperature, 2), retain);
+    //Light
+    client.publish(lightStateTopic, String(lightSensor), retain);
 }

@@ -3,3 +3,15 @@ ParticleMoistureToMQTT/target/*
 ParticleMoistureToMQTT/lib/*
 ParticleMoistureToMQTT/.vscode/*
 ParticleMoistureToMQTT/src/particle_secrets.h
+
+ParticleCapacitiveSensor/target/*
+ParticleCapacitiveSensor/lib/*
+ParticleCapacitiveSensor/.vscode/*
+ParticleCapacitiveSensor/src/ParticleCapacitiveSensor.cpp
+ParticleCapacitiveSensor/src/particle_secrets.h
+
+ParticleCapacitiveSensorV2/target/*
+ParticleCapacitiveSensorV2/lib/*
+ParticleCapacitiveSensorV2/.vscode/*
+ParticleCapacitiveSensorV2/src/ParticleCapacitiveSensor.cpp
+ParticleCapacitiveSensorV2/src/particle_secrets.h
